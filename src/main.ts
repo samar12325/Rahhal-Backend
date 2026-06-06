@@ -10,11 +10,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
 
+  const allowedOrigins = (process.env.CORS_ORIGINS ??
+    'https://rahhal.it.com,https://www.rahhal.it.com,http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.use(helmet());
   app.use(cookieParser());
 
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
     methods: 'GET,POST,PUT,PATCH,DELETE',
   });

@@ -15,11 +15,15 @@ async function bootstrap() {
     app.useLogger(app.get(nestjs_pino_1.Logger));
     app.use((0, helmet_1.default)());
     app.use((0, cookie_parser_1.default)());
-    app.enableCors({
-        origin: 'http://localhost:5173',
-        credentials: true,
-        methods: 'GET,POST,PUT,PATCH,DELETE',
-    });
+   app.enableCors({
+  origin: [
+    'http://localhost:5173',
+    'https://rahhal.it.com',
+    'https://www.rahhal.it.com',
+  ],
+  credentials: true,
+  methods: 'GET,POST,PUT,PATCH,DELETE',
+});
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,

@@ -4,6 +4,11 @@ export const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
 
   DATABASE_URL: z.string().min(1),
+  CORS_ORIGINS: z
+    .string()
+    .default(
+      'https://rahhal.it.com,https://www.rahhal.it.com,http://localhost:5173',
+    ),
 
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
