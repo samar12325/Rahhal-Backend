@@ -1,0 +1,21 @@
+CREATE TABLE `events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(180) NOT NULL,
+  `city` VARCHAR(120) NOT NULL,
+  `location` VARCHAR(255) NOT NULL,
+  `category` VARCHAR(120) NOT NULL,
+  `description` TEXT NULL,
+  `image_url` VARCHAR(500) NULL,
+  `price_text` VARCHAR(120) NULL,
+  `start_datetime` TIMESTAMP(0) NOT NULL,
+  `end_datetime` TIMESTAMP(0) NULL,
+  `official_booking_url` VARCHAR(500) NULL,
+  `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  `created_at` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `updated_at` TIMESTAMP(0) NULL,
+  INDEX `idx_events_status`(`status`),
+  INDEX `idx_events_city`(`city`),
+  INDEX `idx_events_category`(`category`),
+  INDEX `idx_events_start_datetime`(`start_datetime`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { isBookingCompletedByDate } from '../../common/utils/booking-completion';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -32,17 +37,42 @@ export class ReviewsService {
     };
   }
 
-  async create(userId: string, dto: { bookingId: number; rating: number; comment?: string }) {
+  async create(
+    userId: string,
+    dto: { bookingId: number; rating: number; comment?: string },
+  ) {
     const uid = BigInt(userId);
     const bookingId = BigInt(dto.bookingId);
 
     const booking = await this.prisma.bookings.findUnique({
       where: { id: bookingId },
-      select: { id: true, user_id: true },
+      select: {
+        id: true,
+        user_id: true,
+        scheduled_date: true,
+        scheduled_time: true,
+        trips: {
+          select: {
+            start_date: true,
+            end_date: true,
+          },
+        },
+      },
     });
 
     if (!booking) throw new BadRequestException('Booking not found');
-    if (booking.user_id !== uid) throw new UnauthorizedException('Not your booking');
+    if (booking.user_id !== uid)
+      throw new UnauthorizedException('Not your booking');
+    if (
+      !isBookingCompletedByDate({
+        scheduledDate: booking.scheduled_date,
+        scheduledTime: booking.scheduled_time,
+        tripStartDate: booking.trips?.start_date,
+        tripEndDate: booking.trips?.end_date,
+      })
+    ) {
+      throw new BadRequestException('Trip has not ended yet');
+    }
 
     const exists = await this.prisma.reviews.findFirst({
       where: { booking_id: bookingId },

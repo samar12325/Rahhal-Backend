@@ -14,51 +14,73 @@ model User {
   passwordHash       String               @map("password_hash") @db.VarChar(255)
   phone              String?              @db.VarChar(30)
   role               UserRole             @default(user)
-  email_verified_at  DateTime?            @db.Timestamp(0)
   createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamp(0)
   updated_at         DateTime?            @db.Timestamp(0)
   bookings           bookings[]
   group_trip_details group_trip_details[]
   reviews            reviews[]
   trips              trips[]
+  reviewed_trips     trips[]              @relation("TripReviewer")
+  ai_trip_sessions   ai_trip_sessions[]
 
   @@map("users")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model bookings {
-  id            BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
-  trip_id       BigInt          @db.UnsignedBigInt
-  user_id       BigInt          @db.UnsignedBigInt
-  persons_count Int             @db.UnsignedInt
-  total_price   Decimal         @default(0.00) @db.Decimal(10, 2)
-  status        bookings_status @default(pending)
-  created_at    DateTime        @default(now()) @db.Timestamp(0)
-  updated_at    DateTime?       @db.Timestamp(0)
-  trips         trips           @relation(fields: [trip_id], references: [id], map: "fk_bookings_trip")
-  users         User            @relation(fields: [user_id], references: [id], map: "fk_bookings_user")
-  payments      payments[]
-  reviews       reviews?
+  id             BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  trip_id        BigInt          @db.UnsignedBigInt
+  user_id        BigInt          @db.UnsignedBigInt
+  persons_count  Int             @db.UnsignedInt
+  total_price    Decimal         @default(0.00) @db.Decimal(10, 2)
+  scheduled_date DateTime?       @db.Date
+  scheduled_time String?         @db.VarChar(5)
+  status         bookings_status @default(pending)
+  created_at     DateTime        @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?       @db.Timestamp(0)
+  trips          trips           @relation(fields: [trip_id], references: [id], map: "fk_bookings_trip")
+  users          User            @relation(fields: [user_id], references: [id], map: "fk_bookings_user")
+  payments       payments[]
+  reviews        reviews?
 
   @@index([status], map: "idx_bookings_status")
   @@index([trip_id], map: "idx_bookings_trip")
   @@index([user_id], map: "idx_bookings_user")
+  @@index([created_at], map: "idx_bookings_created_at")
 }
 
 model destinations {
-  id          BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
-  name        String              @db.VarChar(120)
-  region      destinations_region
-  description String?             @db.Text
-  image_url   String?             @db.VarChar(500)
-  is_active   Boolean             @default(true)
-  created_at  DateTime            @default(now()) @db.Timestamp(0)
-  updated_at  DateTime?           @db.Timestamp(0)
-  trips       trips[]
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  name               String               @db.VarChar(120)
+  region             destinations_region
+  description        String?              @db.Text
+  image_url          String?              @db.VarChar(500)
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?            @db.Timestamp(0)
+  destination_places destination_places[]
+  trips              trips[]
 
   @@unique([name, region], map: "uq_destinations_name_region")
   @@index([is_active], map: "idx_destinations_active")
   @@index([region], map: "idx_destinations_region")
+}
+
+model destination_places {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  destination_id      BigInt                @db.UnsignedBigInt
+  name                String                @db.VarChar(160)
+  type                String?               @db.VarChar(80)
+  description         String?               @db.Text
+  image_url           String?               @db.VarChar(500)
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamp(0)
+  updated_at          DateTime?             @db.Timestamp(0)
+  destinations        destinations          @relation(fields: [destination_id], references: [id], onDelete: Cascade, map: "fk_destination_places_destination")
+  school_trip_details school_trip_details[]
+
+  @@index([destination_id], map: "idx_destination_places_destination")
+  @@index([is_active], map: "idx_destination_places_active")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -110,18 +132,55 @@ model reviews {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model school_trip_details {
-  trip_id           BigInt    @id @db.UnsignedBigInt
-  school_name       String    @db.VarChar(200)
-  education_level   String?   @db.VarChar(80)
-  students_count    Int       @db.UnsignedInt
-  supervisors_count Int       @default(0) @db.UnsignedInt
-  transport_type    String?   @db.VarChar(80)
-  meeting_point     String?   @db.VarChar(250)
-  permit_file_url   String?   @db.VarChar(500)
-  notes             String?   @db.Text
-  created_at        DateTime  @default(now()) @db.Timestamp(0)
-  updated_at        DateTime? @db.Timestamp(0)
-  trips             trips     @relation(fields: [trip_id], references: [id], onDelete: Cascade, map: "fk_school_trip_trip")
+  trip_id            BigInt              @id @db.UnsignedBigInt
+  place_id           BigInt?             @db.UnsignedBigInt
+  school_name        String              @db.VarChar(200)
+  education_level    String?             @db.VarChar(80)
+  students_count     Int                 @db.UnsignedInt
+  supervisors_count  Int                 @default(0) @db.UnsignedInt
+  transport_type     String?             @db.VarChar(80)
+  meeting_point      String?             @db.VarChar(250)
+  permit_file_url    String?             @db.VarChar(500)
+  notes              String?             @db.Text
+  created_at         DateTime            @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?           @db.Timestamp(0)
+  prep_progress      Int                 @default(12) @db.UnsignedTinyInt
+  is_ready           Boolean             @default(false)
+  trip_live_status   school_trip_live_status @default(created)
+  departure_time     DateTime?           @db.Timestamp(0)
+  return_time        DateTime?           @db.Timestamp(0)
+  supervisor_notes   String?             @db.Text
+  tracking_last_updated_at DateTime?     @db.Timestamp(0)
+  trips              trips               @relation(fields: [trip_id], references: [id], onDelete: Cascade, map: "fk_school_trip_trip")
+  destination_places destination_places? @relation(fields: [place_id], references: [id], map: "fk_school_trip_place")
+
+  @@index([place_id], map: "idx_school_trip_place")
+}
+
+model trip_parent_approvals {
+  id              BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  trip_id         BigInt?                 @db.UnsignedBigInt
+  student_name    String                  @db.VarChar(150)
+  parent_name     String                  @db.VarChar(150)
+  parent_phone    String                  @db.VarChar(30)
+  parent_email    String                  @db.VarChar(150)
+  approval_status parent_approval_status? @default(pending)
+  approval_token  String                  @unique(map: "uq_trip_parent_approval_token") @db.VarChar(120)
+  tracking_token  String?                 @unique(map: "uq_trip_parent_tracking_token") @db.VarChar(120)
+  attendance_status student_attendance_status? @default(unprepared)
+  attendance_marked_at DateTime?          @db.Timestamp(0)
+  attendance_marked_by_name String?       @db.VarChar(120)
+  tracking_link_sent_at DateTime?         @db.Timestamp(0)
+  approved_at     DateTime?               @db.Timestamp(0)
+  email_sent_at   DateTime?               @db.Timestamp(0)
+  last_email_error String?                @db.Text
+  created_at      DateTime?               @default(now()) @db.Timestamp(0)
+  updated_at      DateTime?               @default(now()) @db.Timestamp(0)
+  trips           trips?                  @relation(fields: [trip_id], references: [id], onDelete: Cascade, map: "fk_parent_approval_trip")
+
+  @@index([trip_id], map: "idx_parent_approval_trip")
+  @@index([parent_email], map: "idx_parent_approval_email")
+  @@index([approval_status], map: "idx_parent_approval_status")
 }
 
 model tags {
@@ -144,31 +203,122 @@ model trip_tags {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model trips {
-  id                  BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
-  title               String               @db.VarChar(180)
-  destination_id      BigInt               @db.UnsignedBigInt
-  type                trips_type           @default(individual)
-  description         String?              @db.Text
-  start_date          DateTime?            @db.Date
-  end_date            DateTime?            @db.Date
-  duration_days       Int?                 @db.UnsignedInt
-  price_per_person    Decimal?             @db.Decimal(10, 2)
-  max_participants    Int?                 @db.UnsignedInt
-  status              trips_status         @default(draft)
-  created_by          BigInt               @db.UnsignedBigInt
-  created_at          DateTime             @default(now()) @db.Timestamp(0)
-  updated_at          DateTime?            @db.Timestamp(0)
-  bookings            bookings[]
-  group_trip_details  group_trip_details?
-  school_trip_details school_trip_details?
-  trip_tags           trip_tags[]
-  users               User                 @relation(fields: [created_by], references: [id], map: "fk_trips_creator")
-  destinations        destinations         @relation(fields: [destination_id], references: [id], map: "fk_trips_destination")
+  id                    BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  title                 String                  @db.VarChar(180)
+  destination_id        BigInt                  @db.UnsignedBigInt
+  type                  trips_type              @default(individual)
+  description           String?                 @db.Text
+  start_date            DateTime?               @db.Date
+  end_date              DateTime?               @db.Date
+  duration_days         Int?                    @db.UnsignedInt
+  price_per_person      Decimal?                @db.Decimal(10, 2)
+  old_price             Decimal?                @db.Decimal(10, 2)
+  includes              Json?
+  image_url             String?                 @db.VarChar(500)
+  max_participants      Int?                    @db.UnsignedInt
+  status                trips_status            @default(draft)
+  created_by            BigInt                  @db.UnsignedBigInt
+  reviewed_by           BigInt?                 @db.UnsignedBigInt
+  reviewed_at           DateTime?               @db.Timestamp(0)
+  rejection_reason      String?                 @db.Text
+  created_at            DateTime                @default(now()) @db.Timestamp(0)
+  updated_at            DateTime?               @db.Timestamp(0)
+  bookings              bookings[]
+  group_trip_details    group_trip_details?
+  trip_parent_approvals trip_parent_approvals[]
+  school_trip_details   school_trip_details?
+  trip_tags             trip_tags[]
+  users                 User                    @relation(fields: [created_by], references: [id], map: "fk_trips_creator")
+  reviewer              User?                   @relation("TripReviewer", fields: [reviewed_by], references: [id], map: "fk_trips_reviewer")
+  destinations          destinations            @relation(fields: [destination_id], references: [id], map: "fk_trips_destination")
 
   @@index([created_by], map: "idx_trips_created_by")
+  @@index([reviewed_by], map: "idx_trips_reviewed_by")
   @@index([start_date, end_date], map: "idx_trips_dates")
-  @@index([destination_id], map: "idx_trips_destination")
+  @@index([destination_id], map: "idx_trips_destination_id")
+  @@index([type], map: "idx_trips_type")
   @@index([type, status], map: "idx_trips_type_status")
+  @@index([destination_id], map: "idx_trips_destination")
+}
+
+model ai_trip_sessions {
+  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id          BigInt             @db.UnsignedBigInt
+  title            String             @db.VarChar(180)
+  city             String             @db.VarChar(120)
+  days             Int                @db.UnsignedTinyInt
+  people           Int                @db.UnsignedTinyInt
+  min_budget       Decimal?           @db.Decimal(10, 2)
+  max_budget       Decimal?           @db.Decimal(10, 2)
+  style            String?            @db.VarChar(40)
+  prefs            Json?
+  notes            String?            @db.Text
+  locale           String             @default("ar") @db.VarChar(5)
+  plan_json        Json
+  last_message_at  DateTime?          @db.Timestamp(0)
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime?          @db.Timestamp(0)
+  users            User               @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_ai_trip_sessions_user")
+  ai_trip_messages ai_trip_messages[]
+
+  @@index([user_id], map: "idx_ai_trip_sessions_user")
+  @@index([updated_at], map: "idx_ai_trip_sessions_updated_at")
+  @@index([last_message_at], map: "idx_ai_trip_sessions_last_message_at")
+}
+
+model ai_trip_messages {
+  id         BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  session_id BigInt               @db.UnsignedBigInt
+  role       ai_trip_message_role
+  text       String               @db.Text
+  plan_json  Json?
+  created_at DateTime             @default(now()) @db.Timestamp(0)
+  sessions   ai_trip_sessions     @relation(fields: [session_id], references: [id], onDelete: Cascade, map: "fk_ai_trip_messages_session")
+
+  @@index([session_id], map: "idx_ai_trip_messages_session")
+  @@index([created_at], map: "idx_ai_trip_messages_created_at")
+}
+
+model contact_messages {
+  id            BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  name          String         @db.VarChar(120)
+  email         String         @db.VarChar(190)
+  type          contact_type
+  message       String         @db.Text
+  status        contact_status @default(new)
+  created_at    DateTime       @default(now()) @db.Timestamp(0)
+  read_at       DateTime?      @db.Timestamp(0)
+  sent_at       DateTime?      @db.Timestamp(0)
+  ip_address    String?        @db.VarChar(64)
+  user_agent    String?        @db.VarChar(1000)
+  error_message String?        @db.Text
+
+  @@index([status], map: "idx_contact_status")
+  @@index([created_at], map: "idx_contact_created_at")
+  @@index([email], map: "idx_contact_email")
+  @@index([read_at], map: "idx_contact_read_at")
+}
+
+model events {
+  id                   BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  title                String       @db.VarChar(180)
+  city                 String       @db.VarChar(120)
+  location             String       @db.VarChar(255)
+  category             String       @db.VarChar(120)
+  description          String?      @db.Text
+  image_url            String?      @db.VarChar(500)
+  price_text           String?      @db.VarChar(120)
+  start_datetime       DateTime     @db.Timestamp(0)
+  end_datetime         DateTime?    @db.Timestamp(0)
+  official_booking_url String?      @db.VarChar(500)
+  status               event_status @default(active)
+  created_at           DateTime     @default(now()) @db.Timestamp(0)
+  updated_at           DateTime?    @db.Timestamp(0)
+
+  @@index([status], map: "idx_events_status")
+  @@index([city], map: "idx_events_city")
+  @@index([category], map: "idx_events_category")
+  @@index([start_datetime], map: "idx_events_start_datetime")
 }
 
 enum UserRole {
@@ -217,4 +367,45 @@ enum trips_status {
   full
   completed
   cancelled
+}
+
+enum parent_approval_status {
+  pending
+  approved
+  rejected
+}
+
+enum student_attendance_status {
+  unprepared
+  present
+  absent
+}
+
+enum school_trip_live_status {
+  created
+  in_progress
+  completed
+}
+
+enum ai_trip_message_role {
+  user
+  assistant
+}
+
+enum contact_type {
+  suggestion
+  complaint
+  inquiry
+  partnership
+}
+
+enum contact_status {
+  new
+  sent
+  failed
+}
+
+enum event_status {
+  active
+  inactive
 }

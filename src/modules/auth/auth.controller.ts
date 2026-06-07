@@ -1,8 +1,18 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import type { Request, Response } from 'express';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import type { Response } from 'express';
+import type { RequestWithAuthCookies } from '../../common/types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
@@ -29,15 +39,26 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: RequestWithAuthCookies,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const token = req.cookies?.refreshToken;
-    if (!token) {
-      return { accessToken: null };
+    if (typeof token !== 'string' || token.length === 0) {
+      res.clearCookie('accessToken', this.cookieOptions());
+      res.clearCookie('refreshToken', this.cookieOptions());
+      throw new UnauthorizedException('Refresh token is required');
     }
 
-    const result = await this.auth.refresh(token);
-    this.setAccessCookie(res, result.accessToken);
-    return { ok: true };
+    try {
+      const result = await this.auth.refresh(token);
+      this.setAccessCookie(res, result.accessToken);
+      return { ok: true };
+    } catch (error: unknown) {
+      res.clearCookie('accessToken', this.cookieOptions());
+      res.clearCookie('refreshToken', this.cookieOptions());
+      throw error;
+    }
   }
 
   @Post('logout')
@@ -45,6 +66,16 @@ export class AuthController {
     res.clearCookie('accessToken', this.cookieOptions());
     res.clearCookie('refreshToken', this.cookieOptions());
     return { ok: true };
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
   }
 
   private setAuthCookies(
