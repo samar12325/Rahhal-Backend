@@ -8,6 +8,7 @@ export declare class SchoolTripsController {
     private readonly service;
     constructor(service: SchoolTripsService);
     create(dto: CreateSchoolTripDto, file?: Express.Multer.File, req?: RequestWithAuthCookies): Promise<{
+        message: string;
         id: string;
         title: string;
         destination_id: string;

@@ -11,11 +11,15 @@ type SchoolTripsCurrentUser = {
 export declare class SchoolTripsService {
     private prisma;
     private emailService;
+    private readonly pendingCreateRequests;
     constructor(prisma: PrismaService, emailService: EmailService);
     private readonly regionLabels;
     private isAdmin;
     private getTodayDateKey;
     private ensureTripDatesAreValid;
+    private normalizeCreateValue;
+    private buildCreateRequestKey;
+    private ensureNoRecentDuplicateTrip;
     private getRequesterId;
     private buildScopedTripsWhere;
     private getScopedTripOrThrow;
@@ -303,6 +307,7 @@ export declare class SchoolTripsService {
     private sendAbsenceNotificationEmail;
     private escapeHtml;
     create(dto: CreateSchoolTripDto, createdBy: number, permitFileUrl?: string | null): Promise<{
+        message: string;
         id: string;
         title: string;
         destination_id: string;

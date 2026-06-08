@@ -60,6 +60,7 @@ const SAUDI_PHONE_PATTERN = /^05\d{8}$/;
 let SchoolTripsService = class SchoolTripsService {
     prisma;
     emailService;
+    pendingCreateRequests = new Set();
     constructor(prisma, emailService) {
         this.prisma = prisma;
         this.emailService = emailService;
@@ -87,6 +88,59 @@ let SchoolTripsService = class SchoolTripsService {
         const today = this.getTodayDateKey();
         if (dto.start_date < today || dto.end_date < today) {
             throw new common_1.BadRequestException('Past trip dates are not allowed');
+        }
+    }
+    normalizeCreateValue(value) {
+        return value?.trim().toLowerCase() ?? '';
+    }
+    buildCreateRequestKey(dto, createdBy) {
+        return [
+            createdBy,
+            this.normalizeCreateValue(dto.title),
+            dto.destination_id,
+            dto.place_id,
+            this.normalizeCreateValue(dto.school_name),
+            this.normalizeCreateValue(dto.education_level),
+            dto.start_date,
+            dto.end_date,
+            dto.duration_days,
+            dto.max_participants ?? '',
+            dto.students_count,
+            dto.supervisors_count,
+            this.normalizeCreateValue(dto.transport_type),
+            this.normalizeCreateValue(dto.meeting_point),
+            this.normalizeCreateValue(dto.description),
+            this.normalizeCreateValue(dto.notes),
+        ].join('|');
+    }
+    async ensureNoRecentDuplicateTrip(dto, createdBy) {
+        const recentWindowStart = new Date(Date.now() - 2 * 60 * 1000);
+        const duplicateTrip = await this.prisma.trips.findFirst({
+            where: {
+                title: dto.title.trim(),
+                destination_id: BigInt(dto.destination_id),
+                type: client_1.trips_type.school,
+                created_by: BigInt(createdBy),
+                start_date: new Date(`${dto.start_date}T00:00:00.000Z`),
+                end_date: new Date(`${dto.end_date}T00:00:00.000Z`),
+                created_at: { gte: recentWindowStart },
+                school_trip_details: {
+                    is: {
+                        place_id: BigInt(dto.place_id),
+                        school_name: dto.school_name.trim(),
+                        education_level: dto.education_level.trim(),
+                        students_count: dto.students_count,
+                        supervisors_count: dto.supervisors_count,
+                        transport_type: dto.transport_type.trim(),
+                        meeting_point: dto.meeting_point.trim(),
+                        notes: dto.notes?.trim() ?? null,
+                    },
+                },
+            },
+            select: { id: true },
+        });
+        if (duplicateTrip) {
+            throw new common_1.ConflictException('يتم الآن إضافة الرحلة أو تمت إضافتها بالفعل. فضلاً انتظر ولا تكرر الضغط.');
         }
     }
     getRequesterId(currentUser) {
@@ -1135,6 +1189,10 @@ let SchoolTripsService = class SchoolTripsService {
             throw new common_1.BadRequestException('school_name is required');
         }
         this.ensureTripDatesAreValid(dto);
+        const createRequestKey = this.buildCreateRequestKey(dto, createdBy);
+        if (this.pendingCreateRequests.has(createRequestKey)) {
+            throw new common_1.ConflictException('يتم الآن إضافة الرحلة. فضلاً انتظر حتى يكتمل الطلب.');
+        }
         const destination = await this.prisma.destinations.findFirst({
             where: {
                 id: BigInt(dto.destination_id),
@@ -1156,55 +1214,65 @@ let SchoolTripsService = class SchoolTripsService {
         if (!place) {
             throw new common_1.BadRequestException('place_id does not exist, is not active, or does not belong to destination_id');
         }
-        const trip = await this.prisma.$transaction(async (tx) => {
-            const createdTrip = await tx.trips.create({
-                data: {
-                    title: dto.title,
-                    destination_id: BigInt(dto.destination_id),
-                    type: client_1.trips_type.school,
-                    description: dto.description ?? null,
-                    start_date: dto.start_date
-                        ? new Date(`${dto.start_date}T00:00:00.000Z`)
-                        : null,
-                    end_date: dto.end_date
-                        ? new Date(`${dto.end_date}T00:00:00.000Z`)
-                        : null,
-                    duration_days: dto.duration_days,
-                    price_per_person: null,
-                    max_participants: dto.max_participants ?? null,
-                    status: client_1.trips_status.draft,
-                    created_by: BigInt(createdBy),
-                    created_at: new Date(),
-                },
+        this.pendingCreateRequests.add(createRequestKey);
+        try {
+            await this.ensureNoRecentDuplicateTrip(dto, createdBy);
+            const trip = await this.prisma.$transaction(async (tx) => {
+                const createdTrip = await tx.trips.create({
+                    data: {
+                        title: dto.title,
+                        destination_id: BigInt(dto.destination_id),
+                        type: client_1.trips_type.school,
+                        description: dto.description ?? null,
+                        start_date: dto.start_date
+                            ? new Date(`${dto.start_date}T00:00:00.000Z`)
+                            : null,
+                        end_date: dto.end_date
+                            ? new Date(`${dto.end_date}T00:00:00.000Z`)
+                            : null,
+                        duration_days: dto.duration_days,
+                        price_per_person: null,
+                        max_participants: dto.max_participants ?? null,
+                        status: client_1.trips_status.draft,
+                        created_by: BigInt(createdBy),
+                        created_at: new Date(),
+                    },
+                });
+                await tx.school_trip_details.create({
+                    data: {
+                        trip_id: createdTrip.id,
+                        place_id: BigInt(dto.place_id),
+                        school_name: dto.school_name,
+                        education_level: dto.education_level,
+                        students_count: dto.students_count,
+                        supervisors_count: dto.supervisors_count,
+                        transport_type: dto.transport_type,
+                        meeting_point: dto.meeting_point,
+                        permit_file_url: permitFileUrl ?? null,
+                        notes: dto.notes ?? null,
+                        prep_progress: 12,
+                        is_ready: false,
+                    },
+                });
+                return tx.trips.findFirst({
+                    where: { id: createdTrip.id },
+                    include: {
+                        destinations: true,
+                        school_trip_details: { include: { destination_places: true } },
+                    },
+                });
             });
-            await tx.school_trip_details.create({
-                data: {
-                    trip_id: createdTrip.id,
-                    place_id: BigInt(dto.place_id),
-                    school_name: dto.school_name,
-                    education_level: dto.education_level,
-                    students_count: dto.students_count,
-                    supervisors_count: dto.supervisors_count,
-                    transport_type: dto.transport_type,
-                    meeting_point: dto.meeting_point,
-                    permit_file_url: permitFileUrl ?? null,
-                    notes: dto.notes ?? null,
-                    prep_progress: 12,
-                    is_ready: false,
-                },
-            });
-            return tx.trips.findFirst({
-                where: { id: createdTrip.id },
-                include: {
-                    destinations: true,
-                    school_trip_details: { include: { destination_places: true } },
-                },
-            });
-        });
-        if (!trip) {
-            throw new common_1.BadRequestException('Unable to create school trip');
+            if (!trip) {
+                throw new common_1.BadRequestException('Unable to create school trip');
+            }
+            return {
+                ...this.mapTrip(trip),
+                message: 'تم إضافة الرحلة بنجاح. انتظر الموافقة على الرحلة.',
+            };
         }
-        return this.mapTrip(trip);
+        finally {
+            this.pendingCreateRequests.delete(createRequestKey);
+        }
     }
     async getById(id, currentUser) {
         const trip = await this.getScopedTripOrThrow(id, currentUser);
