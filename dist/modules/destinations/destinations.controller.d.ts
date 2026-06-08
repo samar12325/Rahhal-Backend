@@ -5,15 +5,15 @@ export declare class DestinationsController {
     list(region?: string): Promise<{
         id: string;
         name: string;
-        region: import(".prisma/client").$Enums.destinations_region;
         description: string | null;
         image_url: string | null;
+        region: import(".prisma/client").$Enums.destinations_region;
     }[]>;
     getById(id: string): Promise<{
         id: string;
         name: string;
-        region: import(".prisma/client").$Enums.destinations_region;
         description: string | null;
         image_url: string | null;
+        region: import(".prisma/client").$Enums.destinations_region;
     }>;
 }

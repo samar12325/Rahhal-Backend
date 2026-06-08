@@ -25,7 +25,11 @@ export class AuthController {
   ) {
     const result = await this.auth.register(dto);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user };
+    return {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
   }
 
   @Post('login')
@@ -35,7 +39,11 @@ export class AuthController {
   ) {
     const result = await this.auth.login(dto);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user };
+    return {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
   }
 
   @Post('refresh')
@@ -53,7 +61,10 @@ export class AuthController {
     try {
       const result = await this.auth.refresh(token);
       this.setAccessCookie(res, result.accessToken);
-      return { ok: true };
+      return {
+        ok: true,
+        accessToken: result.accessToken,
+      };
     } catch (error: unknown) {
       res.clearCookie('accessToken', this.cookieOptions());
       res.clearCookie('refreshToken', this.cookieOptions());

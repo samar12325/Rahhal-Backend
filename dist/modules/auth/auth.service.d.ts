@@ -1,11 +1,13 @@
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../mail/email.service';
 export declare class AuthService {
     private prisma;
     private jwt;
     private config;
-    constructor(prisma: PrismaService, jwt: JwtService, config: ConfigService);
+    private emailService;
+    constructor(prisma: PrismaService, jwt: JwtService, config: ConfigService, emailService: EmailService);
     private normalizeUser;
     private signAccessToken;
     private signRefreshToken;
@@ -41,4 +43,29 @@ export declare class AuthService {
     refresh(refreshToken: string): Promise<{
         accessToken: string;
     }>;
+    forgotPassword(dto: {
+        email: string;
+    }): Promise<{
+        ok: boolean;
+        debug: {
+            userFound: boolean;
+            mailAttempted: boolean;
+            mailSent: boolean;
+        };
+    } | {
+        ok: boolean;
+        debug?: undefined;
+    }>;
+    resetPassword(dto: {
+        token: string;
+        password: string;
+    }): Promise<{
+        ok: boolean;
+    }>;
+    private getResetTokenSecret;
+    private createResetToken;
+    private verifyResetToken;
+    private hashResetMarker;
+    private getFrontendUrl;
+    private extractMailError;
 }

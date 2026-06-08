@@ -1,9 +1,23 @@
 export declare function validateEnv(): {
     PORT: number;
     DATABASE_URL: string;
+    DB_HOST: string;
+    DB_PORT: number;
+    DB_USER: string;
+    DB_NAME: string;
+    DB_POOL_LIMIT: number;
     JWT_ACCESS_SECRET: string;
     JWT_REFRESH_SECRET: string;
+    RESET_TOKEN_PEPPER: string;
     ACCESS_EXPIRES_IN: string;
     REFRESH_EXPIRES_IN_DAYS: number;
+    FRONTEND_URL: string;
+    MAIL_FROM_NAME: string;
+    OPENAI_MODEL: string;
     NODE_ENV: "development" | "production" | "test";
+    DB_PASS?: string | undefined;
+    MAIL_USER?: string | undefined;
+    MAIL_PASS?: string | undefined;
+    CONTACT_TO?: string | undefined;
+    OPENAI_API_KEY?: string | undefined;
 };

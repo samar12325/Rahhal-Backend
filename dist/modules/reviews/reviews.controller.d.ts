@@ -1,3 +1,4 @@
+import type { AuthenticatedRequest } from '../../common/types/authenticated-request.type';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReviewsService } from './reviews.service';
 export declare class ReviewsController {
@@ -12,7 +13,7 @@ export declare class ReviewsController {
             createdAt: Date;
         }[];
     }>;
-    create(req: any, dto: CreateReviewDto): Promise<{
+    create(req: AuthenticatedRequest, dto: CreateReviewDto): Promise<{
         id: string;
         userId: string;
         rating: number;

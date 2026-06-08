@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReviewsService = void 0;
 const common_1 = require("@nestjs/common");
+const booking_completion_1 = require("../../common/utils/booking-completion");
 const prisma_service_1 = require("../../prisma/prisma.service");
 let ReviewsService = class ReviewsService {
     prisma;
@@ -47,12 +48,31 @@ let ReviewsService = class ReviewsService {
         const bookingId = BigInt(dto.bookingId);
         const booking = await this.prisma.bookings.findUnique({
             where: { id: bookingId },
-            select: { id: true, user_id: true },
+            select: {
+                id: true,
+                user_id: true,
+                scheduled_date: true,
+                scheduled_time: true,
+                trips: {
+                    select: {
+                        start_date: true,
+                        end_date: true,
+                    },
+                },
+            },
         });
         if (!booking)
             throw new common_1.BadRequestException('Booking not found');
         if (booking.user_id !== uid)
             throw new common_1.UnauthorizedException('Not your booking');
+        if (!(0, booking_completion_1.isBookingCompletedByDate)({
+            scheduledDate: booking.scheduled_date,
+            scheduledTime: booking.scheduled_time,
+            tripStartDate: booking.trips?.start_date,
+            tripEndDate: booking.trips?.end_date,
+        })) {
+            throw new common_1.BadRequestException('Trip has not ended yet');
+        }
         const exists = await this.prisma.reviews.findFirst({
             where: { booking_id: bookingId },
             select: { id: true },

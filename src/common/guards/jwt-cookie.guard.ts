@@ -22,7 +22,7 @@ export class JwtCookieGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext) {
     const req = ctx.switchToHttp().getRequest<RequestWithAuthCookies>();
-    const token = req.cookies?.accessToken;
+    const token = this.extractAccessToken(req);
 
     if (typeof token !== 'string' || token.length === 0) {
       throw new UnauthorizedException('Not authenticated');
@@ -42,5 +42,24 @@ export class JwtCookieGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+  }
+
+  private extractAccessToken(req: RequestWithAuthCookies) {
+    const cookieToken = req.cookies?.accessToken;
+    if (typeof cookieToken === 'string' && cookieToken.length > 0) {
+      return cookieToken;
+    }
+
+    const authorizationHeader = req.headers?.authorization;
+    if (typeof authorizationHeader !== 'string') {
+      return null;
+    }
+
+    const [scheme, token] = authorizationHeader.split(' ');
+    if (scheme?.toLowerCase() !== 'bearer' || !token) {
+      return null;
+    }
+
+    return token;
   }
 }

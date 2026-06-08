@@ -15,8 +15,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
+const forgot_password_dto_1 = require("./dto/forgot-password.dto");
 const login_dto_1 = require("./dto/login.dto");
 const register_dto_1 = require("./dto/register.dto");
+const reset_password_dto_1 = require("./dto/reset-password.dto");
 let AuthController = class AuthController {
     auth;
     constructor(auth) {
@@ -25,26 +27,52 @@ let AuthController = class AuthController {
     async register(dto, res) {
         const result = await this.auth.register(dto);
         this.setAuthCookies(res, result.accessToken, result.refreshToken);
-        return { user: result.user };
+        return {
+            user: result.user,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+        };
     }
     async login(dto, res) {
         const result = await this.auth.login(dto);
         this.setAuthCookies(res, result.accessToken, result.refreshToken);
-        return { user: result.user };
+        return {
+            user: result.user,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+        };
     }
     async refresh(req, res) {
         const token = req.cookies?.refreshToken;
-        if (!token) {
-            return { accessToken: null };
+        if (typeof token !== 'string' || token.length === 0) {
+            res.clearCookie('accessToken', this.cookieOptions());
+            res.clearCookie('refreshToken', this.cookieOptions());
+            throw new common_1.UnauthorizedException('Refresh token is required');
         }
-        const result = await this.auth.refresh(token);
-        this.setAccessCookie(res, result.accessToken);
-        return { ok: true };
+        try {
+            const result = await this.auth.refresh(token);
+            this.setAccessCookie(res, result.accessToken);
+            return {
+                ok: true,
+                accessToken: result.accessToken,
+            };
+        }
+        catch (error) {
+            res.clearCookie('accessToken', this.cookieOptions());
+            res.clearCookie('refreshToken', this.cookieOptions());
+            throw error;
+        }
     }
     logout(res) {
         res.clearCookie('accessToken', this.cookieOptions());
         res.clearCookie('refreshToken', this.cookieOptions());
         return { ok: true };
+    }
+    forgotPassword(dto) {
+        return this.auth.forgotPassword(dto);
+    }
+    resetPassword(dto) {
+        return this.auth.resetPassword(dto);
     }
     setAuthCookies(res, accessToken, refreshToken) {
         this.setAccessCookie(res, accessToken);
@@ -61,10 +89,11 @@ let AuthController = class AuthController {
         });
     }
     cookieOptions() {
+        const isProduction = process.env.NODE_ENV === 'production';
         return {
             httpOnly: true,
-            secure: false,
-            sameSite: 'lax',
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
             path: '/',
         };
     }
@@ -101,6 +130,20 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [forgot_password_dto_1.ForgotPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resetPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

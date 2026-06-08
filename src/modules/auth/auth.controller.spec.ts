@@ -54,7 +54,7 @@ describe('AuthController', () => {
         { cookies: { refreshToken: 'valid-refresh-token' } } as any,
         response as any,
       ),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, accessToken: 'new-access-token' });
 
     expect(response.cookie).toHaveBeenCalledWith(
       'accessToken',

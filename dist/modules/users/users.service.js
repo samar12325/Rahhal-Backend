@@ -11,7 +11,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
+const booking_completion_1 = require("../../common/utils/booking-completion");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const DEFAULT_TRIP_IMAGE = 'https://placehold.co/640x360?text=Rahhal+Trip';
 let UsersService = class UsersService {
     prisma;
     constructor(prisma) {
@@ -63,6 +66,71 @@ let UsersService = class UsersService {
             },
         });
         return { ...updated, id: updated.id.toString() };
+    }
+    async getMyBookings(userId) {
+        const id = BigInt(userId);
+        const bookings = await this.prisma.bookings.findMany({
+            where: {
+                user_id: id,
+                status: {
+                    in: [
+                        client_1.bookings_status.pending,
+                        client_1.bookings_status.confirmed,
+                        client_1.bookings_status.completed,
+                    ],
+                },
+            },
+            include: {
+                trips: {
+                    include: {
+                        destinations: true,
+                    },
+                },
+                reviews: true,
+            },
+            orderBy: { created_at: 'desc' },
+        });
+        return {
+            items: bookings.map((booking) => this.mapBooking(booking)),
+        };
+    }
+    mapBooking(booking) {
+        const trip = booking.trips;
+        const destination = trip?.destinations;
+        const date = booking.scheduled_date ?? trip?.start_date ?? null;
+        const image = trip?.image_url ?? destination?.image_url ?? DEFAULT_TRIP_IMAGE;
+        const hasEnded = (0, booking_completion_1.isBookingCompletedByDate)({
+            scheduledDate: booking.scheduled_date,
+            scheduledTime: booking.scheduled_time,
+            tripStartDate: trip?.start_date,
+            tripEndDate: trip?.end_date,
+        }) || booking.status === client_1.bookings_status.completed;
+        const status = hasEnded ? 'completed' : 'upcoming';
+        return {
+            id: booking.id.toString(),
+            tripId: booking.trip_id.toString(),
+            date: date ? date.toISOString().slice(0, 10) : null,
+            time: booking.scheduled_time ?? null,
+            people: booking.persons_count,
+            status,
+            hasEnded,
+            canReview: hasEnded && !booking.reviews,
+            trip: trip
+                ? {
+                    id: trip.id.toString(),
+                    title: trip.title,
+                    city: destination?.name ?? '',
+                    image,
+                    type: trip.type,
+                }
+                : null,
+            review: booking.reviews
+                ? {
+                    rating: booking.reviews.rating,
+                    comment: booking.reviews.comment,
+                }
+                : null,
+        };
     }
 };
 exports.UsersService = UsersService;

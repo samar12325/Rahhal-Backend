@@ -28,6 +28,9 @@ let UsersController = class UsersController {
     update(req, dto) {
         return this.users.updateMe(req.user.userId, dto);
     }
+    myBookings(req) {
+        return this.users.getMyBookings(req.user.userId);
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -47,6 +50,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_profile_dto_1.UpdateProfileDto]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "update", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_cookie_guard_1.JwtCookieGuard),
+    (0, common_1.Get)('me/bookings'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "myBookings", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [users_service_1.UsersService])

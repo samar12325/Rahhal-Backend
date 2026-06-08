@@ -13,6 +13,9 @@ type RequestWithCookies = {
   cookies: {
     accessToken?: string;
   };
+  headers?: {
+    authorization?: string;
+  };
   user?: {
     userId: string;
     role: string;
@@ -63,6 +66,23 @@ describe('JwtCookieGuard', () => {
     expect(request.user).toEqual({
       userId: '42',
       role: 'admin',
+    });
+  });
+
+  it('accepts a bearer token when the access token cookie is missing', async () => {
+    const request = {
+      cookies: {},
+      headers: { authorization: 'Bearer bearer-token' },
+    };
+    jwt.verifyAsync.mockResolvedValue({ sub: '7', role: 'school' });
+
+    await expect(guard.canActivate(createContext(request))).resolves.toBe(true);
+    expect(jwt.verifyAsync).toHaveBeenCalledWith('bearer-token', {
+      secret: 'test-secret',
+    });
+    expect(request.user).toEqual({
+      userId: '7',
+      role: 'school',
     });
   });
 });

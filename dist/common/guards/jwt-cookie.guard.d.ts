@@ -6,4 +6,5 @@ export declare class JwtCookieGuard implements CanActivate {
     private config;
     constructor(jwt: JwtService, config: ConfigService);
     canActivate(ctx: ExecutionContext): Promise<boolean>;
+    private extractAccessToken;
 }

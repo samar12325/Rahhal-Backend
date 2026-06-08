@@ -22,9 +22,10 @@ let JwtCookieGuard = class JwtCookieGuard {
     }
     async canActivate(ctx) {
         const req = ctx.switchToHttp().getRequest();
-        const token = req.cookies?.accessToken;
-        if (!token)
+        const token = this.extractAccessToken(req);
+        if (typeof token !== 'string' || token.length === 0) {
             throw new common_1.UnauthorizedException('Not authenticated');
+        }
         try {
             const payload = await this.jwt.verifyAsync(token, {
                 secret: this.config.get('JWT_ACCESS_SECRET'),
@@ -39,10 +40,26 @@ let JwtCookieGuard = class JwtCookieGuard {
             throw new common_1.UnauthorizedException('Invalid or expired token');
         }
     }
+    extractAccessToken(req) {
+        const cookieToken = req.cookies?.accessToken;
+        if (typeof cookieToken === 'string' && cookieToken.length > 0) {
+            return cookieToken;
+        }
+        const authorizationHeader = req.headers?.authorization;
+        if (typeof authorizationHeader !== 'string') {
+            return null;
+        }
+        const [scheme, token] = authorizationHeader.split(' ');
+        if (scheme?.toLowerCase() !== 'bearer' || !token) {
+            return null;
+        }
+        return token;
+    }
 };
 exports.JwtCookieGuard = JwtCookieGuard;
 exports.JwtCookieGuard = JwtCookieGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [jwt_1.JwtService, config_1.ConfigService])
+    __metadata("design:paramtypes", [jwt_1.JwtService,
+        config_1.ConfigService])
 ], JwtCookieGuard);
 //# sourceMappingURL=jwt-cookie.guard.js.map
